@@ -80,6 +80,8 @@ def test_all_machine_serializers():
     b.seek(0)
     m2.serialize(b, [0x0a, 0x0b])
     assert b.asbytes() == b"\x0a\x0b"
+    b.seek(0)
+    assert m2.deserialize(b) == [0x0a, 0x0b]
 
     m2 = mc.ByteArrayMachine(3)
     b.zero_out()

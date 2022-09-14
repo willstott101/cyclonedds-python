@@ -12,6 +12,7 @@
 
 import sys
 import struct
+from array import array
 
 from dataclasses import dataclass, field
 from enum import IntEnum, Enum, auto
@@ -79,6 +80,7 @@ class Buffer:
             self._endian = "<"
         else:
             self._endian = ">"
+        self._endian_native = self.endianness == Endianness.native()
 
     def zero_out(self) -> None:
         # As per testing (https://stackoverflow.com/questions/19671145)
@@ -122,9 +124,13 @@ class Buffer:
         self._pos += length
         return self
 
-    def write_multi(self, pack: str, size: int, *values: Any) -> 'Buffer':
+    def write_multi(self, pack: str, count: int, size: int, values: Any) -> 'Buffer':
         self.ensure_size(size)
-        struct.pack_into(self._endian + pack, self._bytes, self._pos, *values)
+        if self._endian_native:
+            mem = memoryview(self._bytes)
+            mem[self._pos:self._pos+size] = array(pack, values)
+        else:
+            struct.pack_into(f"{self._endian}{count}{pack}", self._bytes, self._pos, *values)
         self._pos += size
         return self
 
@@ -138,10 +144,13 @@ class Buffer:
         self._pos += size
         return v[0]
 
-    def read_multi(self, pack: str, size: int) -> Tuple[Any, ...]:
-        v = struct.unpack_from(self._endian + pack, buffer=self._bytes, offset=self._pos)
+    def read_multi(self, pack: str, count: int, size: int) -> Tuple[Any, ...]:
+        mem = memoryview(self._bytes)[self._pos:self._pos+size]
         self._pos += size
-        return v
+        if self._endian_native:
+            return mem.cast(pack).tolist()
+        else:
+            return list(struct.unpack(f"{self._endian}{count}{pack}", mem))
 
     def asbytes(self) -> bytes:
         return bytes(self._bytes[0:self._pos])
