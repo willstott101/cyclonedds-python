@@ -214,5 +214,17 @@ def test_all_machine_serializers():
     assert b.asbytes() == b"\x04\x00\x00\x00\x01\x00\x34\x12\x02\x00\x00\x00\x00\x77"
 
 
+@pytest.mark.parameterize("data", [
+    list(range(256))
+    list(range(256)) * 100
+])
+def bench_primitive_array_encoding(benchmark, data):
+    b = Buffer()
+    b.set_endianness(Endianness.Little)
+    b.ensure_size(len(data) + 1024) # Make sure we're not benchmarking buffer resizing
 
-
+    m2 = mc.PlainCdrV2SequenceOfPrimitiveMachine(tp.uint8)
+    @benchmark
+    def do_bench():
+        m2.serialize(b, data)
+        b.seek(0)
